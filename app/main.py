@@ -37,7 +37,7 @@ def main():
             args = command.split()
             program_name = args[0]
             path_env = os.environ.get("PATH","")
-            paths = path_env.split(os.pathstep)
+            paths = path_env.split(os.pathsep)
             found_path = None
             for path_dir in paths:
                 full_path = os.path.join(path_dir,program_name)
