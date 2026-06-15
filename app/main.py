@@ -9,7 +9,10 @@ def main():
             command = input()
         except EOFError:
             break
+        if command == "exit" or command == "exit0":
+            sys.exit(0)
         print(f"{command}: command not found")
+        
         
 if __name__ == "__main__":
     main()
