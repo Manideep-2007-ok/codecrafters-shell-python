@@ -18,7 +18,7 @@ def parse_arguments(cmd_arg):
             else:
                 current_arg.append(char)
             is_escaping = False
-        elif char == "\\" and not in_double_quotes:
+        elif char == "\\" and not in_single_quotes:
             is_escaping = True
         elif char == "'" and not in_double_quotes:
             in_single_quotes = not in_single_quotes
