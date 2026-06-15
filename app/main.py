@@ -9,9 +9,16 @@ def parse_arguments(cmd_arg):
     is_escaping = False
     for char in cmd_arg:
         if is_escaping:
-            current_arg.append(char)
+            if in_double_quotes:
+                if char in ['"','\\','$','`','\n']:
+                    current_arg.append(char)
+                else:
+                    current_arg.append('\\')
+                    current_arg.append(char)
+            else:
+                current_arg.append(char)
             is_escaping = False
-        elif char == "\\" and not in_double_quotes and not in_single_quotes:
+        elif char == "\\" and not in_double_quotes:
             is_escaping = True
         elif char == "'" and not in_double_quotes:
             in_single_quotes = not in_single_quotes
