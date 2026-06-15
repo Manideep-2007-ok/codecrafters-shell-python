@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 def main():
-    builtins = ["echo","exit","type"]
+    builtins = ["echo","exit","type","pwd"]
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
@@ -33,6 +33,8 @@ def main():
                         break
                 if not found:
                     print(f"{target_command}: not found")
+        elif command == "pwd":
+            print(os.getcwd())
         else:
             args = command.split()
             program_name = args[0]
