@@ -1,6 +1,22 @@
 import sys
 import os
 import subprocess
+def parse_arguments(cmd_arg):
+    args = []
+    current_arg = []
+    in_single_quotes = False
+    for char in cmd_arg:
+        if char == "'":
+            in_single_quotes = not in_single_quotes
+        elif char.isspace() and not in_single_quotes:
+            if current_arg:
+                args.append("".join(current_arg))
+                current_arg = []
+        else:
+            current_arg.append(char)
+    if current_arg:
+        args.append("".join(current_arg))
+    return args
 def main():
     builtins = ["echo","exit","type","pwd","cd"]
     while True:
@@ -12,39 +28,43 @@ def main():
                 continue
         except EOFError:
             break
-        if command == "exit" or command == "exit 0":
+        args = parse_arguments(command)
+        if not args:
+            continue
+        cmd = args[0]
+        if cmd == "exit" or cmd == "exit 0":
             sys.exit(0)
-        elif command.startswith("echo "):
-            message = command[5:]
-            print(message)
-        elif command.startswith("type "):
-            target_command = command[5:].strip()
-            if target_command in builtins:
-                print(f"{target_command} is a shell builtin")
-            else:
-                path_env = os.environ.get("PATH","")
-                paths = path_env.split(os.pathsep)
-                found = False
-                for path_dir in paths:
-                    full_path = os.path.join(path_dir,target_command)
-                    if os.path.isfile(full_path) and os.access(full_path,os.X_OK):
-                        print(f"{target_command} is {full_path}")
-                        found = True
-                        break
-                if not found:
-                    print(f"{target_command}: not found")
-        elif command == "pwd":
+        elif cmd=="echo":
+            print(" ".join(args[1:]))
+        elif cmd=="type":
+            if len(args)>1:
+                target_command = args[1]
+                if target_command in builtins:
+                    print(f"{target_command} is a shell builtin")
+                else:
+                    path_env = os.environ.get("PATH","")
+                    paths = path_env.split(os.pathsep)
+                    found = False
+                    for path_dir in paths:
+                        full_path = os.path.join(path_dir,target_command)
+                        if os.path.isfile(full_path) and os.access(full_path,os.X_OK):
+                            print(f"{target_command} is {full_path}")
+                            found = True
+                            break
+                    if not found:
+                        print(f"{target_command}: not found")
+        elif cmd == "pwd":
             print(os.getcwd())
-        elif command.startswith("cd "):
-            directory = command[3:].strip()
-            if directory == "~":
-                directory = os.environ.get("HOME","")
-            if os.path.exists(directory):
-                os.chdir(directory)
-            else:
-                print(f"cd: {directory}: No such file or directory")
+        elif cmd=="cd":
+            if len(args)>1:
+                directory = args[1]
+                if directory == "~":
+                    directory = os.environ.get("HOME","")
+                if os.path.exists(directory):
+                    os.chdir(directory)
+                else:
+                    print(f"cd: {directory}: No such file or directory")
         else:
-            args = command.split()
             program_name = args[0]
             path_env = os.environ.get("PATH","")
             paths = path_env.split(os.pathsep)
