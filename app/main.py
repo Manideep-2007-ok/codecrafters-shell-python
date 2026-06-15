@@ -48,7 +48,7 @@ def main():
                 args[0] = found_path
                 subprocess.run(args)
             else:
-                print(f"{program_name}: not found")
+                print(f"{program_name}: command not found")
         
         
 if __name__ == "__main__":
