@@ -44,11 +44,11 @@ def main():
                 if os.path.isfile(full_path) and os.access(full_path,os.X_OK):
                     found_path = full_path
                     break
-                if found_path:
-                    args[0] = found_path
-                    subprocess.run(args)
-                else:
-                    print(f"{program_name}: not found")
+            if found_path:
+                args[0] = found_path
+                subprocess.run(args)
+            else:
+                print(f"{program_name}: not found")
         
         
 if __name__ == "__main__":
