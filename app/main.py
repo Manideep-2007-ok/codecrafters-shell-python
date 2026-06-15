@@ -162,7 +162,7 @@ def main():
                         "id":job_counter,
                         "pid":proc.pid,
                         "cmd":command,
-                        "status":"Running"
+                        "status":"Running",
                         "proc": proc
                     })
                     job_counter+=1
