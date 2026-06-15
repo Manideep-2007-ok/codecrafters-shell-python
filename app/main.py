@@ -49,10 +49,21 @@ def main():
             continue
         redirect_stdout = None
         redirect_stderr = None
+        mode_stdout = "w"
         if "2>" in args:
             idx = args.index("2>")
             redirect_stderr = args[idx+1]
             args = args[:idx]+args[idx+2:]
+        if ">>" in args:
+            idx = args.index(">>")
+            redirect_stdout = args[idx+1]
+            args = args[:idx]+args[idx+2:]
+            mode_stdout = "a"
+        if "1>>" in args:
+            idx = args.index("1>>")
+            redirect_stdout = args[idx+1]
+            args = args[:idx]+args[idx+2:]
+            mode_stdout = "a"
         if ">" in args:
             idx = args.index(">")
             redirect_stdout = args[idx+1]
@@ -61,7 +72,7 @@ def main():
             idx = args.index("1>")
             redirect_stdout = args[idx+1]
             args = args[:idx]+args[idx+2:]
-        out_fp = open(redirect_stdout,"w") if redirect_stdout else sys.stdout
+        out_fp = open(redirect_stdout,mode_stdout) if redirect_stdout else sys.stdout
         err_fp = open(redirect_stderr,"w") if redirect_stderr else sys.stderr
         cmd = args[0]
         if cmd == "exit" or cmd == "exit 0":
