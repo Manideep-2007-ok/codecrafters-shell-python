@@ -162,17 +162,37 @@ def main():
         out_fp = open(redirect_stdout, mode_stdout) if redirect_stdout else sys.stdout
         err_fp = open(redirect_stderr, mode_stderr) if redirect_stderr else sys.stderr
         if "|" in args:
-            pipe_idx = args.index("|")
-            left_args = args[:pipe_idx]
-            right_args = args[pipe_idx+1:]
-            r, w = os.pipe()
-            w_fp = os.fdopen(w, "w")
-            p1 = execute_command(left_args, out_fp=w_fp, err_fp=err_fp)
-            w_fp.close()
-            p2 = execute_command(right_args, out_fp=out_fp, err_fp=err_fp, in_fd=r)
-            os.close(r)
-            if p1: p1.wait()
-            if p2: p2.wait()
+            commands = []
+            current_cmd = []
+            for arg in args:
+                if arg == "|":
+                    if current_cmd:
+                        commands.append(current_cmd)
+                    current_cmd = []
+                else:
+                    current_cmd.append(arg)
+            if current_cmd:
+                commands.append(current_cmd)
+            processes = []
+            prev_r = None
+            for i, cmd_args in enumerate(commands):
+                is_last = (i == len(commands) - 1)
+                if not is_last:
+                    r, w = os.pipe()
+                    current_out = os.fdopen(w, "w")
+                else:
+                    current_out = out_fp
+                p = execute_command(cmd_args, out_fp=current_out, err_fp=err_fp, in_fd=prev_r)
+                processes.append(p)
+                if not is_last:
+                    current_out.close()
+                if prev_r is not None:
+                    os.close(prev_r)
+                if not is_last:
+                    prev_r = r
+            for p in processes:
+                if p:
+                    p.wait()
             if redirect_stdout: out_fp.close()
             if redirect_stderr: err_fp.close()
             continue
