@@ -5,10 +5,13 @@ def parse_arguments(cmd_arg):
     args = []
     current_arg = []
     in_single_quotes = False
+    in_double_quotes = False
     for char in cmd_arg:
-        if char == "'":
+        if char == "'" and not in_double_quotes:
             in_single_quotes = not in_single_quotes
-        elif char.isspace() and not in_single_quotes:
+        elif char == '"' and not in_single_quotes:
+            in_double_quotes = not in_double_quotes
+        elif char.isspace() and not in_single_quotes and not in_double_quotes:
             if current_arg:
                 args.append("".join(current_arg))
                 current_arg = []
