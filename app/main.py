@@ -127,7 +127,7 @@ def main():
         elif cmd == "jobs":
             for job in jobs_list:
                 status_padded = job["status"].ljust(24)
-                print(f"[{job["id"]}]+ {status_padded}{job["cmd"]}", file = out_fp)
+                print(f"[{job["id"]}]+  {status_padded}{job["cmd"]}", file = out_fp)
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
