@@ -45,8 +45,7 @@ def main():
                     found_path = full_path
                     break
             if found_path:
-                args[0] = found_path
-                subprocess.run(args)
+                subprocess.run(args, executable=found_path)
             else:
                 print(f"{program_name}: command not found")
         
