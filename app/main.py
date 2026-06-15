@@ -126,7 +126,12 @@ def main():
                     print(f"cd: {directory}: No such file or directory", file=err_fp)
         elif cmd == "jobs":
             total_jobs = len(jobs_list)
+            jobs_to_keep = []
             for index, job in enumerate(jobs_list):
+                if job["proc"].poll() is not None:
+                    job["status"] = "Done"
+                    if job["cmd"].endswith("&"):
+                        job["cmd"] = job["cmd"][:-1].rstrip()
                 status_padded = job["status"].ljust(24)
                 if index == total_jobs-1:
                     marker = "+"
@@ -135,6 +140,10 @@ def main():
                 else:
                     marker = " "
                 print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file = out_fp)
+                
+                if job["status"] == "Running":
+                    jobs_to_keep.append(job)
+            jobs_list = jobs_to_keep
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
@@ -154,6 +163,7 @@ def main():
                         "pid":proc.pid,
                         "cmd":command,
                         "status":"Running"
+                        "proc": proc
                     })
                     job_counter+=1
                 else:
