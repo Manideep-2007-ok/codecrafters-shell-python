@@ -47,20 +47,28 @@ def main():
         args = parse_arguments(command)
         if not args:
             continue
-        redirect_file = None
+        redirect_stdout = None
+        redirect_stderr = None
+        if "2>" in args:
+            idx = args.index("2>")
+            redirect_stderr = args[idx:]
+            args = args[:idx]+args[idx+2:]
         if ">" in args:
             idx = args.index(">")
-            redirect_file = args[idx+1]
+            redirect_stdout = args[idx+1]
             args = args[:idx]+args[idx+2:]
         if "1>" in args:
             idx = args.index("1>")
-            redirect_file = args[idx+1]
+            redirect_stdout = args[idx+1]
             args = args[:idx]+args[idx+2:]
-        out_fp = open(redirect_file,"w") if redirect_file else sys.stdout
+        out_fp = open(redirect_stdout,"w") if redirect_stdout else sys.stdout
+        err_fp = open(redirect_stderr,"w") if redirect_stderr else sys.stderr
         cmd = args[0]
         if cmd == "exit" or cmd == "exit 0":
-            if redirect_file:
+            if redirect_stdout:
                 out_fp.close()
+            if redirect_stderr:
+                err_fp.close()
             sys.exit(0)
         elif cmd=="echo":
             print(" ".join(args[1:]), file=out_fp)
@@ -91,7 +99,7 @@ def main():
                 if os.path.exists(directory):
                     os.chdir(directory)
                 else:
-                    print(f"cd: {directory}: No such file or directory")
+                    print(f"cd: {directory}: No such file or directory", file=err_fp)
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
@@ -103,11 +111,13 @@ def main():
                     found_path = full_path
                     break
             if found_path:
-                subprocess.run(args, executable=found_path, stdout = out_fp)
+                subprocess.run(args, executable=found_path, stdout = out_fp, stderr = err_fp)
             else:
                 print(f"{program_name}: command not found")
-        if redirect_file:
+        if redirect_stdout:
             out_fp.close()
+        if redirect_stderr:
+            err_fp.close()
         
 if __name__ == "__main__":
     main()
