@@ -34,7 +34,7 @@ def parse_arguments(cmd_arg):
         args.append("".join(current_arg))
     return args
 def main():
-    builtins = ["echo","exit","type","pwd","cd"]
+    builtins = ["echo","exit","type","pwd","cd","jobs"]
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
@@ -117,6 +117,8 @@ def main():
                     os.chdir(directory)
                 else:
                     print(f"cd: {directory}: No such file or directory", file=err_fp)
+        elif cmd == "jobs":
+            pass
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
