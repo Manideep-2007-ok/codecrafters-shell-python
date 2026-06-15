@@ -51,7 +51,7 @@ def main():
         redirect_stderr = None
         if "2>" in args:
             idx = args.index("2>")
-            redirect_stderr = args[idx:]
+            redirect_stderr = args[idx+1]
             args = args[:idx]+args[idx+2:]
         if ">" in args:
             idx = args.index(">")
