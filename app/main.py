@@ -125,9 +125,16 @@ def main():
                 else:
                     print(f"cd: {directory}: No such file or directory", file=err_fp)
         elif cmd == "jobs":
-            for job in jobs_list:
+            total_jobs = len(jobs_list)
+            for index, job in enumerate(jobs_list):
                 status_padded = job["status"].ljust(24)
-                print(f"[{job['id']}]+  {status_padded}{job['cmd']}", file = out_fp)
+                if index == total_jobs-1:
+                    marker = "+"
+                elif index == total_jobs-2:
+                    marker = "-"
+                else:
+                    marker = " "
+                print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file = out_fp)
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
