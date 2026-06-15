@@ -3,6 +3,13 @@ import os
 import subprocess
 job_counter = 1
 jobs_list = []
+def find_path(cmd_name):
+    path_env = os.environ.get("PATH", "")
+    for path_dir in path_env.split(os.pathsep):
+        full_path = os.path.join(path_dir, cmd_name)
+        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+            return full_path
+    return None
 def parse_arguments(cmd_arg):
     args = []
     current_arg = []
@@ -87,6 +94,34 @@ def main():
             args = args[:idx]+args[idx+2:]
         out_fp = open(redirect_stdout,mode_stdout) if redirect_stdout else sys.stdout
         err_fp = open(redirect_stderr,mode_stderr) if redirect_stderr else sys.stderr
+        if "|" in args:
+            pipe_idx = args.index("|")
+            left_args = args[:pipe_idx]
+            right_args = args[pipe_idx+1:]
+            left_path = find_path(left_args[0])
+            right_path = find_path(right_args[0])
+            if left_path and right_path:
+                p1 = subprocess.Popen(left_args, executable=left_path, stdout=subprocess.PIPE)
+                p2 = subprocess.Popen(right_args, executable=right_path, stdin=p1.stdout, stdout=out_fp, stderr=err_fp)
+                p1.stdout.close()
+                if run_in_background:
+                    print(f"[{job_counter}] {p2.pid}")
+                    jobs_list.append({
+                        "id": job_counter,
+                        "pid": p2.pid,
+                        "cmd": command,
+                        "status": "Running",
+                        "proc": p2
+                    })
+                    job_counter += 1
+                else:
+                    p2.wait()
+                    p1.wait()
+            else:
+                print("command not found", file=err_fp)
+            if redirect_stdout: out_fp.close()
+            if redirect_stderr: err_fp.close()
+            continue
         cmd = args[0]
         if cmd == "exit" or cmd == "exit 0":
             if redirect_stdout:
