@@ -1,6 +1,7 @@
 import sys
 import os
 import subprocess
+job_counter = 1
 def parse_arguments(cmd_arg):
     args = []
     current_arg = []
@@ -47,6 +48,10 @@ def main():
         args = parse_arguments(command)
         if not args:
             continue
+        run_in_background = False
+        if args[-1] == "&":
+            run_in_background = True
+            args.pop()
         redirect_stdout = None
         redirect_stderr = None
         mode_stdout = "w"
@@ -130,7 +135,12 @@ def main():
                     found_path = full_path
                     break
             if found_path:
-                subprocess.run(args, executable=found_path, stdout = out_fp, stderr = err_fp)
+                if run_in_background:
+                    proc = subprocess.Popen(args, executable=found_path, stdout = out_fp, stderr = err_fp)
+                    print(f"[{job_counter}] {proc.pid}")
+                    job_counter+=1
+                else:
+                    subprocess.run(args, executable=found_path, stdout = out_fp, stderr = err_fp)
             else:
                 print(f"{program_name}: command not found")
         if redirect_stdout:
