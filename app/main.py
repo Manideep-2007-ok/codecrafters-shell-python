@@ -42,173 +42,149 @@ def parse_arguments(cmd_arg):
     if current_arg:
         args.append("".join(current_arg))
     return args
+def execute_command(args, out_fp, err_fp, in_fd=None):
+    """Executes a single command, routing its I/O to the provided pointers."""
+    global job_counter, jobs_list
+    cmd = args[0]
+    builtins = ["echo", "exit", "type", "pwd", "cd", "jobs"]
+    if cmd == "exit":
+        sys.exit(0)
+    elif cmd == "echo":
+        print(" ".join(args[1:]), file=out_fp)
+        out_fp.flush()
+    elif cmd == "type":
+        if len(args) > 1:
+            target_command = args[1]
+            if target_command in builtins:
+                print(f"{target_command} is a shell builtin", file=out_fp)
+            else:
+                found_path = find_path(target_command)
+                if found_path:
+                    print(f"{target_command} is {found_path}", file=out_fp)
+                else:
+                    print(f"{target_command}: not found", file=out_fp)
+        out_fp.flush()
+    elif cmd == "pwd":
+        print(os.getcwd(), file=out_fp)
+        out_fp.flush()
+    elif cmd == "cd":
+        if len(args) > 1:
+            directory = args[1]
+            if directory == "~":
+                directory = os.environ.get("HOME", "")
+            if os.path.exists(directory):
+                os.chdir(directory)
+            else:
+                print(f"cd: {directory}: No such file or directory", file=err_fp)
+        err_fp.flush()
+    elif cmd == "jobs":
+        total_jobs = len(jobs_list)
+        jobs_to_keep = []
+        for index, job in enumerate(jobs_list):
+            if job["proc"].poll() is not None:
+                job["status"] = "Done"
+                if job["cmd"].endswith("&"):
+                    job["cmd"] = job["cmd"][:-1].rstrip()
+            status_padded = job["status"].ljust(24)
+            if index == total_jobs - 1:
+                marker = "+"
+            elif index == total_jobs - 2:
+                marker = "-"
+            else:
+                marker = " "
+            print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file=out_fp)
+            if job["status"] == "Running":
+                jobs_to_keep.append(job)
+        jobs_list.clear()
+        jobs_list.extend(jobs_to_keep)
+        out_fp.flush()
+    else:
+        found_path = find_path(cmd)
+        if found_path:
+            proc = subprocess.Popen(args, executable=found_path, stdin=in_fd, stdout=out_fp, stderr=err_fp)
+            return proc 
+        else:
+            print(f"{cmd}: command not found", file=err_fp)
+            err_fp.flush()
+        return None
+
 def main():
-    global job_counter,jobs_list
-    builtins = ["echo","exit","type","pwd","cd","jobs"]
+    global job_counter, jobs_list
+    
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
+        
         try:
             command = input().strip()
-            if not command:
-                continue
+            if not command: continue
         except EOFError:
             break
         args = parse_arguments(command)
-        if not args:
-            continue
+        if not args: continue
         run_in_background = False
-        if args[-1] == "&":
+        if args and args[-1] == "&":
             run_in_background = True
             args.pop()
+            if not args: continue
         redirect_stdout = None
         redirect_stderr = None
         mode_stdout = "w"
-        mode_stderr = "w"
         if "2>" in args:
             idx = args.index("2>")
             redirect_stderr = args[idx+1]
-            args = args[:idx]+args[idx+2:]
-        if "2>>" in args:
-            idx = args.index("2>>")
-            redirect_stderr = args[idx+1]
-            args = args[:idx]+args[idx+2:]
-            mode_stderr = "a"
+            args.pop(idx); args.pop(idx)
         if ">>" in args:
             idx = args.index(">>")
             redirect_stdout = args[idx+1]
-            args = args[:idx]+args[idx+2:]
             mode_stdout = "a"
-        if "1>>" in args:
+            args.pop(idx); args.pop(idx)
+        elif "1>>" in args:
             idx = args.index("1>>")
             redirect_stdout = args[idx+1]
-            args = args[:idx]+args[idx+2:]
             mode_stdout = "a"
-        if ">" in args:
+            args.pop(idx); args.pop(idx)
+        elif ">" in args:
             idx = args.index(">")
             redirect_stdout = args[idx+1]
-            args = args[:idx]+args[idx+2:]
-        if "1>" in args:
+            args.pop(idx); args.pop(idx)
+        elif "1>" in args:
             idx = args.index("1>")
             redirect_stdout = args[idx+1]
-            args = args[:idx]+args[idx+2:]
-        out_fp = open(redirect_stdout,mode_stdout) if redirect_stdout else sys.stdout
-        err_fp = open(redirect_stderr,mode_stderr) if redirect_stderr else sys.stderr
+            args.pop(idx); args.pop(idx)
+        out_fp = open(redirect_stdout, mode_stdout) if redirect_stdout else sys.stdout
+        err_fp = open(redirect_stderr, "w") if redirect_stderr else sys.stderr
         if "|" in args:
             pipe_idx = args.index("|")
             left_args = args[:pipe_idx]
             right_args = args[pipe_idx+1:]
-            left_path = find_path(left_args[0])
-            right_path = find_path(right_args[0])
-            if left_path and right_path:
-                p1 = subprocess.Popen(left_args, executable=left_path, stdout=subprocess.PIPE)
-                p2 = subprocess.Popen(right_args, executable=right_path, stdin=p1.stdout, stdout=out_fp, stderr=err_fp)
-                p1.stdout.close()
-                if run_in_background:
-                    print(f"[{job_counter}] {p2.pid}")
-                    jobs_list.append({
-                        "id": job_counter,
-                        "pid": p2.pid,
-                        "cmd": command,
-                        "status": "Running",
-                        "proc": p2
-                    })
-                    job_counter += 1
-                else:
-                    p2.wait()
-                    p1.wait()
-            else:
-                print("command not found", file=err_fp)
+            r, w = os.pipe()
+            w_fp = os.fdopen(w, "w")
+            p1 = execute_command(left_args, out_fp=w_fp, err_fp=err_fp)
+            w_fp.close()
+            p2 = execute_command(right_args, out_fp=out_fp, err_fp=err_fp, in_fd=r)
+            os.close(r)
+            if p1: p1.wait()
+            if p2: p2.wait()
             if redirect_stdout: out_fp.close()
             if redirect_stderr: err_fp.close()
             continue
-        cmd = args[0]
-        if cmd == "exit" or cmd == "exit 0":
-            if redirect_stdout:
-                out_fp.close()
-            if redirect_stderr:
-                err_fp.close()
-            sys.exit(0)
-        elif cmd=="echo":
-            print(" ".join(args[1:]), file=out_fp)
-        elif cmd=="type":
-            if len(args)>1:
-                target_command = args[1]
-                if target_command in builtins:
-                    print(f"{target_command} is a shell builtin")
-                else:
-                    path_env = os.environ.get("PATH","")
-                    paths = path_env.split(os.pathsep)
-                    found = False
-                    for path_dir in paths:
-                        full_path = os.path.join(path_dir,target_command)
-                        if os.path.isfile(full_path) and os.access(full_path,os.X_OK):
-                            print(f"{target_command} is {full_path}")
-                            found = True
-                            break
-                    if not found:
-                        print(f"{target_command}: not found")
-        elif cmd == "pwd":
-            print(os.getcwd())
-        elif cmd=="cd":
-            if len(args)>1:
-                directory = args[1]
-                if directory == "~":
-                    directory = os.environ.get("HOME","")
-                if os.path.exists(directory):
-                    os.chdir(directory)
-                else:
-                    print(f"cd: {directory}: No such file or directory", file=err_fp)
-        elif cmd == "jobs":
-            total_jobs = len(jobs_list)
-            jobs_to_keep = []
-            for index, job in enumerate(jobs_list):
-                if job["proc"].poll() is not None:
-                    job["status"] = "Done"
-                    if job["cmd"].endswith("&"):
-                        job["cmd"] = job["cmd"][:-1].rstrip()
-                status_padded = job["status"].ljust(24)
-                if index == total_jobs-1:
-                    marker = "+"
-                elif index == total_jobs-2:
-                    marker = "-"
-                else:
-                    marker = " "
-                print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file = out_fp)
-                
-                if job["status"] == "Running":
-                    jobs_to_keep.append(job)
-            jobs_list = jobs_to_keep
-        else:
-            program_name = args[0]
-            path_env = os.environ.get("PATH","")
-            paths = path_env.split(os.pathsep)
-            found_path = None
-            for path_dir in paths:
-                full_path = os.path.join(path_dir,program_name)
-                if os.path.isfile(full_path) and os.access(full_path,os.X_OK):
-                    found_path = full_path
-                    break
-            if found_path:
-                if run_in_background:
-                    proc = subprocess.Popen(args, executable=found_path, stdout = out_fp, stderr = err_fp)
-                    print(f"[{job_counter}] {proc.pid}")
-                    jobs_list.append({
-                        "id":job_counter,
-                        "pid":proc.pid,
-                        "cmd":command,
-                        "status":"Running",
-                        "proc": proc
-                    })
-                    job_counter+=1
-                else:
-                    subprocess.run(args, executable=found_path, stdout = out_fp, stderr = err_fp)
+        proc = execute_command(args, out_fp=out_fp, err_fp=err_fp)
+        if proc: 
+            if run_in_background:
+                print(f"[{job_counter}] {proc.pid}")
+                jobs_list.append({
+                    "id": job_counter,
+                    "pid": proc.pid,
+                    "cmd": command,
+                    "status": "Running",
+                    "proc": proc
+                })
+                job_counter += 1
             else:
-                print(f"{program_name}: command not found")
-        if redirect_stdout:
-            out_fp.close()
-        if redirect_stderr:
-            err_fp.close()
-        
+                proc.wait()
+        if redirect_stdout: out_fp.close()
+        if redirect_stderr: err_fp.close()
+
 if __name__ == "__main__":
     main()
