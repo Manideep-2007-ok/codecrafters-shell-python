@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 job_counter = 1
+jobs_list = []
 def parse_arguments(cmd_arg):
     args = []
     current_arg = []
@@ -35,7 +36,7 @@ def parse_arguments(cmd_arg):
         args.append("".join(current_arg))
     return args
 def main():
-    global job_counter
+    global job_counter,jobs_list
     builtins = ["echo","exit","type","pwd","cd","jobs"]
     while True:
         sys.stdout.write("$ ")
@@ -124,7 +125,9 @@ def main():
                 else:
                     print(f"cd: {directory}: No such file or directory", file=err_fp)
         elif cmd == "jobs":
-            pass
+            for job in jobs_list:
+                status_padded = job["status"].ljust(24)
+                print(f"{job["id"]}+ {status_padded}{job["cmd"]}", file = out_fp)
         else:
             program_name = args[0]
             path_env = os.environ.get("PATH","")
@@ -140,6 +143,12 @@ def main():
                     proc = subprocess.Popen(args, executable=found_path, stdout = out_fp, stderr = err_fp)
                     print(f"[{job_counter}] {proc.pid}")
                     job_counter+=1
+                    jobs_list.append({
+                        "id":job_counter,
+                        "pid":proc.pid,
+                        "cmd":command,
+                        "status":"Running"
+                    })
                 else:
                     subprocess.run(args, executable=found_path, stdout = out_fp, stderr = err_fp)
             else:
