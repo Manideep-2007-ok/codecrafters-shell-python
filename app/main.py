@@ -6,8 +6,14 @@ def parse_arguments(cmd_arg):
     current_arg = []
     in_single_quotes = False
     in_double_quotes = False
+    is_escaping = False
     for char in cmd_arg:
-        if char == "'" and not in_double_quotes:
+        if is_escaping:
+            current_arg.append(char)
+            is_escaping = False
+        elif char == "\\" and not in_double_quotes and not in_single_quotes:
+            is_escaping = True
+        elif char == "'" and not in_double_quotes:
             in_single_quotes = not in_single_quotes
         elif char == '"' and not in_single_quotes:
             in_double_quotes = not in_double_quotes
