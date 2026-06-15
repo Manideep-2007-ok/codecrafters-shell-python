@@ -36,7 +36,9 @@ def main():
         elif command == "pwd":
             print(os.getcwd())
         elif command.startswith("cd "):
-            directory = command[3:]
+            directory = command[3:].strip()
+            if directory == "~":
+                directory = os.environ.get("HOME","")
             if os.path.exists(directory):
                 os.chdir(directory)
             else:
