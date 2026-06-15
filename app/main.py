@@ -130,8 +130,15 @@ def main():
         redirect_stdout = None
         redirect_stderr = None
         mode_stdout = "w"
+        mode_stderr = "w"
+        if "2>>" in args:
+            idx = args.index("2>>")
+            redirect_stderr = args[idx+1]
+            mode_stderr = "a"
+            args.pop(idx); args.pop(idx)
         if "2>" in args:
             idx = args.index("2>")
+            mode_stderr = "w"
             redirect_stderr = args[idx+1]
             args.pop(idx); args.pop(idx)
         if ">>" in args:
@@ -153,7 +160,7 @@ def main():
             redirect_stdout = args[idx+1]
             args.pop(idx); args.pop(idx)
         out_fp = open(redirect_stdout, mode_stdout) if redirect_stdout else sys.stdout
-        err_fp = open(redirect_stderr, "w") if redirect_stderr else sys.stderr
+        err_fp = open(redirect_stderr, mode_stderr) if redirect_stderr else sys.stderr
         if "|" in args:
             pipe_idx = args.index("|")
             left_args = args[:pipe_idx]
