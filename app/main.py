@@ -35,6 +35,7 @@ def parse_arguments(cmd_arg):
         args.append("".join(current_arg))
     return args
 def main():
+    global job_counter
     builtins = ["echo","exit","type","pwd","cd","jobs"]
     while True:
         sys.stdout.write("$ ")
