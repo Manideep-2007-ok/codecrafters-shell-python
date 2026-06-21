@@ -1,7 +1,6 @@
 import sys
 import os
 import subprocess
-job_counter = 1
 jobs_list = []
 def find_path(cmd_name):
     path_env = os.environ.get("PATH", "")
@@ -71,8 +70,6 @@ def check_and_reap_jobs(print_all=False, out_fp=sys.stdout):
     out_fp.flush()
 
 def execute_command(args, out_fp, err_fp, in_fd=None):
-    """Executes a single command, routing its I/O to the provided pointers."""
-    global job_counter, jobs_list
     cmd = args[0]
     builtins = ["echo", "exit", "type", "pwd", "cd", "jobs"]
     if cmd == "exit":
@@ -118,7 +115,7 @@ def execute_command(args, out_fp, err_fp, in_fd=None):
         return None
 
 def main():
-    global job_counter, jobs_list
+    global jobs_list
     
     while True:
         check_and_reap_jobs(print_all=False, out_fp=sys.stdout)
@@ -209,15 +206,18 @@ def main():
         proc = execute_command(args, out_fp=out_fp, err_fp=err_fp)
         if proc: 
             if run_in_background:
-                print(f"[{job_counter}] {proc.pid}")
+                if not jobs_list:
+                    next_id = 1
+                else:
+                    next_id = max(job["id"] for job in jobs_list) + 1
+                print(f"[{next_id}] {proc.pid}")
                 jobs_list.append({
-                    "id": job_counter,
+                    "id": next_id,
                     "pid": proc.pid,
                     "cmd": command,
                     "status": "Running",
                     "proc": proc
                 })
-                job_counter += 1
             else:
                 proc.wait()
         if redirect_stdout: out_fp.close()
