@@ -10,6 +10,7 @@ def find_path(cmd_name):
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             return full_path
     return None
+
 def parse_arguments(cmd_arg):
     args = []
     current_arg = []
@@ -42,6 +43,33 @@ def parse_arguments(cmd_arg):
     if current_arg:
         args.append("".join(current_arg))
     return args
+
+def check_and_reap_jobs(print_all=False, out_fp=sys.stdout):
+    global jobs_list
+    total_jobs = len(jobs_list)
+    jobs_to_keep = []
+    for index, job in enumerate(jobs_list):
+        if index == total_jobs - 1:
+            marker = "+"
+        elif index == total_jobs - 2:
+            marker = "-"
+        else:
+            marker = " "
+            
+        is_done = job["proc"].poll() is not None
+        if is_done:
+            job["status"] = "Done"
+            if job["cmd"].endswith("&"):
+                job["cmd"] = job["cmd"][:-1].rstrip()
+        status_padded = job["status"].ljust(24)
+        if is_done or print_all:
+            print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file=out_fp)
+        if not is_done:
+            jobs_to_keep.append(job)
+    jobs_list.clear()
+    jobs_list.extend(jobs_to_keep)
+    out_fp.flush()
+
 def execute_command(args, out_fp, err_fp, in_fd=None):
     """Executes a single command, routing its I/O to the provided pointers."""
     global job_counter, jobs_list
@@ -78,26 +106,7 @@ def execute_command(args, out_fp, err_fp, in_fd=None):
                 print(f"cd: {directory}: No such file or directory", file=err_fp)
         err_fp.flush()
     elif cmd == "jobs":
-        total_jobs = len(jobs_list)
-        jobs_to_keep = []
-        for index, job in enumerate(jobs_list):
-            if job["proc"].poll() is not None:
-                job["status"] = "Done"
-                if job["cmd"].endswith("&"):
-                    job["cmd"] = job["cmd"][:-1].rstrip()
-            status_padded = job["status"].ljust(24)
-            if index == total_jobs - 1:
-                marker = "+"
-            elif index == total_jobs - 2:
-                marker = "-"
-            else:
-                marker = " "
-            print(f"[{job['id']}]{marker}  {status_padded}{job['cmd']}", file=out_fp)
-            if job["status"] == "Running":
-                jobs_to_keep.append(job)
-        jobs_list.clear()
-        jobs_list.extend(jobs_to_keep)
-        out_fp.flush()
+        check_and_reap_jobs(print_all=True, out_fp=out_fp)
     else:
         found_path = find_path(cmd)
         if found_path:
@@ -112,6 +121,7 @@ def main():
     global job_counter, jobs_list
     
     while True:
+        check_and_reap_jobs(print_all=False, out_fp=sys.stdout)
         sys.stdout.write("$ ")
         sys.stdout.flush()
         
